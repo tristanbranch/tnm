@@ -14,18 +14,15 @@ import threading
 import queue
 import logging
 
-# Set up logging
 logging.basicConfig(
     filename='network_monitor.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# Create backup directory
 BACKUP_DIR = Path("network_backups")
 BACKUP_DIR.mkdir(exist_ok=True)
 
-# System functions
 def clear_screen():
     os.system('clear')
 
@@ -33,7 +30,6 @@ def check_root():
     """Check if the script is running with root privileges"""
     return os.geteuid() == 0
 
-# Network scanning functions
 def ping_host(host):
     """Ping a host and return the result"""
     try:
@@ -64,20 +60,16 @@ def scan_common_ports(host):
             open_ports.append(port)
     return open_ports
 
-# Network information functions
 def get_network_info():
     """Get detailed network information using Linux commands"""
     info = {}
     try:
-        # Get IP addresses
         ip_output = subprocess.check_output(['ip', 'addr']).decode()
         info['interfaces'] = ip_output
 
-        # Get routing table
         route_output = subprocess.check_output(['ip', 'route']).decode()
         info['routing'] = route_output
 
-        # Get DNS servers
         with open('/etc/resolv.conf', 'r') as f:
             info['dns'] = f.read()
 
@@ -88,7 +80,6 @@ def get_network_info():
 def get_device_status(host):
     """Get detailed status of a network device"""
     try:
-        # Try to get device info using SNMP (if available)
         try:
             snmp_info = subprocess.check_output(['snmpwalk', '-v2c', '-c', 'public', host, '1.3.6.1.2.1.1.1.0'], 
                                              stderr=subprocess.DEVNULL).decode()
@@ -96,10 +87,8 @@ def get_device_status(host):
         except:
             device_type = "Unknown Device"
 
-        # Check if device is responding to pings
         is_online = ping_host(host)
         
-        # Check common ports to determine device type
         ports = scan_common_ports(host)
         device_ports = {
             80: "Web Server",
@@ -114,7 +103,6 @@ def get_device_status(host):
         
         detected_services = [device_ports.get(port, "Unknown") for port in ports]
         
-        # Get response time
         try:
             response_time = measure_latency(host)
         except:
@@ -133,14 +121,11 @@ def get_device_status(host):
 def get_local_ip():
     """Get local IP address using ip command"""
     try:
-        # Get IP address using ip command
         ip_output = subprocess.check_output(['ip', 'addr', 'show']).decode()
-        # Look for inet address in the output
         for line in ip_output.split('\n'):
             if 'inet ' in line and 'inet6' not in line:
-                # Extract IP address
                 ip = line.strip().split()[1].split('/')[0]
-                if ip != '127.0.0.1':  # Skip localhost
+                if ip != '127.0.0.1':  
                     return ip
         return None
     except:
@@ -149,7 +134,6 @@ def get_local_ip():
 def map_network_topology():
     """Map the network topology using traceroute and device discovery"""
     try:
-        # Get local network information
         local_ip = get_local_ip()
         if not local_ip:
             print("Error: Could not determine local IP address")
@@ -162,10 +146,8 @@ def map_network_topology():
         print("\nMapping network topology...")
         print("Press Ctrl+C to stop scanning at any time")
         
-        # Discover active hosts with detailed scan
         nm = nmap.PortScanner()
         try:
-            # Initial scan with service detection
             nm.scan(hosts=network, arguments='-sS -sV -O --version-intensity 5 -T4')
             hosts_list = [(x, nm[x]['status']['state']) for x in nm.all_hosts()]
         except KeyboardInterrupt:
@@ -185,10 +167,8 @@ def map_network_topology():
                     services_str = ", ".join(device_info['services'])
                     response_time_str = f"{device_info['response_time']:.1f}ms" if device_info['response_time'] else "N/A"
                     
-                    # Enhanced device type detection
                     device_type = device_info['type']
                     if not device_type or device_type == "Unknown Device":
-                        # Try to determine device type based on services
                         if "Web Server" in device_info['services']:
                             device_type = "Web Server"
                         elif "SSH Server" in device_info['services']:
@@ -204,11 +184,9 @@ def map_network_topology():
                         else:
                             device_type = "Network Device"
                     
-                    # Get OS and service information from nmap scan
                     try:
                         if host in nm.all_hosts():
                             host_data = nm[host]
-                            # Get services
                             if 'tcp' in host_data:
                                 services = []
                                 for port, data in host_data['tcp'].items():
@@ -222,13 +200,11 @@ def map_network_topology():
                                             services.append(service_name)
                                 services_str = ", ".join(services)
                             
-                            # Get OS information
                             if 'osmatch' in host_data and host_data['osmatch']:
                                 os_matches = host_data['osmatch']
                                 best_match = max(os_matches, key=lambda x: float(x.get('accuracy', '0')))
                                 os_info = f"{best_match['name']} ({best_match.get('accuracy', '0')}%)"
                             else:
-                                # Try to determine OS from services
                                 os_hints = []
                                 if 'tcp' in host_data:
                                     services = host_data['tcp']
@@ -268,14 +244,12 @@ def map_network_topology():
         for host, _ in hosts_list:
             try:
                 print(f"\nPath to {host}:")
-                # Use traceroute with different options for better results
                 try:
                     traceroute = subprocess.check_output(['traceroute', '-n', '-m', '15', '-w', '2', host], 
                                                        stderr=subprocess.DEVNULL).decode()
                     print(traceroute)
                     
-                    # Analyze path for potential issues
-                    hops = traceroute.split('\n')[1:]  # Skip header
+                    hops = traceroute.split('\n')[1:]  
                     for hop in hops:
                         if hop.strip():
                             if '*' in hop:
@@ -283,7 +257,6 @@ def map_network_topology():
                             elif '!' in hop:
                                 print(f"⚠️  Warning: Network error detected at hop {hop.split()[0]}")
                 except:
-                    # Fallback to mtr if traceroute fails
                     try:
                         mtr = subprocess.check_output(['mtr', '-n', '-r', '-c', '1', host], 
                                                     stderr=subprocess.DEVNULL).decode()
@@ -304,7 +277,6 @@ def map_network_topology():
         print(f"Online devices: {online_devices}")
         print(f"Offline devices: {len(hosts_list) - online_devices}")
         
-        # Generate ASCII network map
         print("\nNetwork Map (ASCII):")
         print("-" * 80)
         print(f"Router ({network})")
@@ -331,14 +303,11 @@ def map_network_topology():
 def get_device_health():
     """Monitor system health metrics"""
     try:
-        # CPU usage
         cpu_percent = psutil.cpu_percent(interval=1)
         
-        # Memory usage
         memory = psutil.virtual_memory()
         memory_percent = memory.percent
         
-        # Disk usage
         disk = psutil.disk_usage('/')
         disk_percent = disk.percent
         
@@ -356,7 +325,7 @@ def measure_latency(host="8.8.8.8"):
     try:
         start_time = time.time()
         subprocess.run(['ping', '-c', '1', host], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        latency = (time.time() - start_time) * 1000  # Convert to milliseconds
+        latency = (time.time() - start_time) * 1000  
         return latency
     except:
         return None
@@ -366,7 +335,7 @@ def get_bandwidth_usage(interface):
     try:
         stats = psutil.net_if_stats()[interface]
         return {
-            'speed': stats.speed,  # Speed in MB/s
+            'speed': stats.speed, 
             'mtu': stats.mtu,
             'is_up': stats.isup,
             'duplex': stats.duplex
@@ -377,7 +346,6 @@ def get_bandwidth_usage(interface):
 def monitor_network():
     """Enhanced network monitoring with multiple metrics"""
     try:
-        # Get list of available interfaces
         interfaces = psutil.net_if_stats().keys()
         print("\nAvailable interfaces:", ", ".join(interfaces))
         
@@ -398,7 +366,6 @@ def monitor_network():
         total_packets_sent = 0
         total_packets_recv = 0
         
-        # Get initial counters
         try:
             initial_stats = psutil.net_io_counters(pernic=True)[interface]
             initial_total_sent = initial_stats.bytes_sent
@@ -411,7 +378,6 @@ def monitor_network():
             print(f"\nError: Interface {interface} not found")
             return
             
-        # Get initial bandwidth info
         bandwidth_info = get_bandwidth_usage(interface)
         if bandwidth_info:
             print(f"\nInterface Speed: {bandwidth_info['speed']} MB/s")
@@ -419,40 +385,32 @@ def monitor_network():
             print(f"Status: {'Up' if bandwidth_info['is_up'] else 'Down'}")
             print(f"Duplex: {bandwidth_info['duplex']}")
             
-        # Wait a moment to get initial readings
         time.sleep(1)
         
         while time.time() - start_time < int(duration):
             try:
-                # Get current stats
                 current_stats = psutil.net_io_counters(pernic=True)[interface]
                 
-                # Calculate rates
                 bytes_sent = current_stats.bytes_sent - initial_stats.bytes_sent
                 bytes_recv = current_stats.bytes_recv - initial_stats.bytes_recv
                 packets_sent = current_stats.packets_sent - initial_packets_sent
                 packets_recv = current_stats.packets_recv - initial_packets_recv
                 
-                # Update peak values
                 mb_sent = bytes_sent / (1024 * 1024)
                 mb_recv = bytes_recv / (1024 * 1024)
                 peak_upload = max(peak_upload, mb_sent)
                 peak_download = max(peak_download, mb_recv)
                 
-                # Calculate totals
                 total_sent = (current_stats.bytes_sent - initial_total_sent) / (1024 * 1024)
                 total_recv = (current_stats.bytes_recv - initial_total_recv) / (1024 * 1024)
                 total_packets_sent += packets_sent
                 total_packets_recv += packets_recv
                 
-                # Get device health
                 health = get_device_health()
                 
-                # Measure latency
                 latency = measure_latency()
                 
-                # Clear line and print all metrics
-                print("\r" + " " * 100 + "\r", end='')  # Clear line
+                print("\r" + " " * 100 + "\r", end='') 
                 print(f"Network Traffic:")
                 print(f"Upload: {mb_sent:.4f} MB/s | Download: {mb_recv:.4f} MB/s")
                 print(f"Total Sent: {total_sent:.4f} MB | Total Received: {total_recv:.4f} MB")
@@ -464,7 +422,6 @@ def monitor_network():
                     print(f"Network Latency: {latency:.2f} ms")
                 print("\nPress Ctrl+C to stop monitoring", end='', flush=True)
                 
-                # Update initial stats
                 initial_stats = current_stats
                 initial_packets_sent = current_stats.packets_sent
                 initial_packets_recv = current_stats.packets_recv
@@ -480,7 +437,6 @@ def monitor_network():
     except Exception as e:
         print(f"\nError monitoring network: {str(e)}")
 
-# Firewall management functions
 def manage_firewall_port(port, action):
     """Manage firewall ports using iptables"""
     if not check_root():
@@ -503,7 +459,6 @@ def backup_device_config(host, device_type):
         backup_file = BACKUP_DIR / f"{host}_{timestamp}.txt"
         
         if device_type.lower() in ['router', 'switch', 'firewall']:
-            # Try SNMP first
             try:
                 config = subprocess.check_output(
                     ['snmpwalk', '-v2c', '-c', 'public', host, '1.3.6.1.4.1.9.9.96.1.1.1.1.1'],
@@ -514,7 +469,6 @@ def backup_device_config(host, device_type):
                 logging.info(f"Successfully backed up {host} configuration via SNMP")
                 return True
             except:
-                # Try SSH if SNMP fails
                 try:
                     config = subprocess.check_output(
                         ['ssh', f'admin@{host}', 'show running-config'],
@@ -543,13 +497,11 @@ def analyze_traffic_patterns(interface, duration=60):
             'connections': {}
         }
         
-        # Get initial stats
         initial_stats = psutil.net_io_counters(pernic=True)[interface]
         
         while time.time() - start_time < duration:
             current_stats = psutil.net_io_counters(pernic=True)[interface]
             
-            # Calculate traffic
             bytes_diff = current_stats.bytes_sent + current_stats.bytes_recv - \
                         (initial_stats.bytes_sent + initial_stats.bytes_recv)
             packets_diff = current_stats.packets_sent + current_stats.packets_recv - \
@@ -558,7 +510,6 @@ def analyze_traffic_patterns(interface, duration=60):
             traffic_data['total_bytes'] += bytes_diff
             traffic_data['total_packets'] += packets_diff
             
-            # Get active connections
             connections = psutil.net_connections(kind='inet')
             for conn in connections:
                 if conn.status == 'ESTABLISHED':
@@ -569,7 +520,6 @@ def analyze_traffic_patterns(interface, duration=60):
             
             time.sleep(1)
         
-        # Sort and get top talkers
         top_connections = sorted(
             traffic_data['connections'].items(),
             key=lambda x: x[1],
@@ -590,7 +540,6 @@ def monitor_device_health(host):
     try:
         health_data = {}
         
-        # CPU Usage
         try:
             cpu = subprocess.check_output(
                 ['snmpwalk', '-v2c', '-c', 'public', host, '1.3.6.1.4.1.9.9.109.1.1.1.1.1'],
@@ -600,7 +549,6 @@ def monitor_device_health(host):
         except:
             health_data['cpu_usage'] = None
         
-        # Memory Usage
         try:
             memory = subprocess.check_output(
                 ['snmpwalk', '-v2c', '-c', 'public', host, '1.3.6.1.4.1.9.9.48.1.1.1.1.1'],
@@ -610,7 +558,6 @@ def monitor_device_health(host):
         except:
             health_data['memory_usage'] = None
         
-        # Temperature (if available)
         try:
             temp = subprocess.check_output(
                 ['snmpwalk', '-v2c', '-c', 'public', host, '1.3.6.1.4.1.9.9.13.1.3.1.2.1'],
@@ -641,7 +588,6 @@ def security_scan(host):
         if host in nm.all_hosts():
             host_data = nm[host]
             
-            # Get open ports and services
             if 'tcp' in host_data:
                 for port, data in host_data['tcp'].items():
                     if data.get('state') == 'open':
@@ -652,11 +598,9 @@ def security_scan(host):
                             'version': data.get('version', '')
                         }
             
-            # Get OS information
             if 'osmatch' in host_data and host_data['osmatch']:
                 security_info['os_info'] = host_data['osmatch'][0]['name']
-            
-            # Check for common vulnerabilities
+                
             for port, service in security_info['services'].items():
                 if service['name'] == 'ssh' and service['version']:
                     if '2.0' in service['version']:
@@ -677,7 +621,6 @@ def security_scan(host):
 def enhanced_monitor_network():
     """Enhanced network monitoring with additional features"""
     try:
-        # Get list of available interfaces
         interfaces = psutil.net_if_stats().keys()
         print("\nAvailable interfaces:", ", ".join(interfaces))
         
@@ -691,7 +634,6 @@ def enhanced_monitor_network():
         print(f"\nMonitoring {interface} for {duration} seconds...")
         print("Press Ctrl+C to stop monitoring early")
         
-        # Start traffic analysis in a separate thread
         traffic_queue = queue.Queue()
         def traffic_analyzer():
             traffic_data = analyze_traffic_patterns(interface, int(duration))
@@ -700,7 +642,6 @@ def enhanced_monitor_network():
         traffic_thread = threading.Thread(target=traffic_analyzer)
         traffic_thread.start()
         
-        # Main monitoring loop
         start_time = time.time()
         peak_upload = 0
         peak_download = 0
@@ -721,29 +662,24 @@ def enhanced_monitor_network():
             try:
                 current_stats = psutil.net_io_counters(pernic=True)[interface]
                 
-                # Calculate rates
                 bytes_sent = current_stats.bytes_sent - initial_stats.bytes_sent
                 bytes_recv = current_stats.bytes_recv - initial_stats.bytes_recv
                 packets_sent = current_stats.packets_sent - initial_packets_sent
                 packets_recv = current_stats.packets_recv - initial_packets_recv
                 
-                # Update peak values
                 mb_sent = bytes_sent / (1024 * 1024)
                 mb_recv = bytes_recv / (1024 * 1024)
                 peak_upload = max(peak_upload, mb_sent)
                 peak_download = max(peak_download, mb_recv)
-                
-                # Calculate totals
+            
                 total_sent = (current_stats.bytes_sent - initial_total_sent) / (1024 * 1024)
                 total_recv = (current_stats.bytes_recv - initial_total_recv) / (1024 * 1024)
                 total_packets_sent += packets_sent
                 total_packets_recv += packets_recv
                 
-                # Get device health
                 health = get_device_health()
                 
-                # Clear line and print all metrics
-                print("\r" + " " * 100 + "\r", end='')  # Clear line
+                print("\r" + " " * 100 + "\r", end='')
                 print(f"Network Traffic:")
                 print(f"Upload: {mb_sent:.4f} MB/s | Download: {mb_recv:.4f} MB/s")
                 print(f"Total Sent: {total_sent:.4f} MB | Total Received: {total_recv:.4f} MB")
@@ -753,7 +689,6 @@ def enhanced_monitor_network():
                     print(f"System Health - CPU: {health['cpu']}% | Memory: {health['memory']}% | Disk: {health['disk']}%")
                 print("\nPress Ctrl+C to stop monitoring", end='', flush=True)
                 
-                # Update initial stats
                 initial_stats = current_stats
                 initial_packets_sent = current_stats.packets_sent
                 initial_packets_recv = current_stats.packets_recv
@@ -766,10 +701,8 @@ def enhanced_monitor_network():
                 print(f"\nError during monitoring: {str(e)}")
                 break
         
-        # Wait for traffic analysis to complete
         traffic_thread.join()
         
-        # Get and display traffic analysis results
         try:
             traffic_data = traffic_queue.get_nowait()
             if traffic_data:
@@ -786,7 +719,6 @@ def enhanced_monitor_network():
     except Exception as e:
         print(f"\nError monitoring network: {str(e)}")
 
-# Main menu and program flow
 def main():
     if not check_root():
         print("Warning: Some features require root privileges")
@@ -915,12 +847,10 @@ def main():
         input("\nPress Enter to continue...")
 
 if __name__ == "__main__":
-    # Check if running with sudo
     if not check_root():
         print("This program requires root privileges.")
         print("Attempting to restart with sudo...")
         try:
-            # Restart the script with sudo
             subprocess.run(['sudo', 'python3', sys.argv[0]])
             sys.exit(0)
         except Exception as e:
