@@ -2,7 +2,7 @@
 
 A terminal-based network management tool designed to monitor and manage network connections, interfaces, and configurations directly from the command line. This tool provides various functionalities such as network scanning, traffic monitoring, and device health checks.
 
-I am aware that they are bugs, and i'm working on them, this tool is ment for linux I have not tested it on windows.
+I am aware that they are bugs, and i'm working on them.
 
 ## Features
 
