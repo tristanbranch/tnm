@@ -1,6 +1,6 @@
 # Terminal Network Manager ( WIP )
 
-A powerful terminal-based network management tool designed to monitor and manage network connections, interfaces, and configurations directly from the command line. This tool provides various functionalities such as network scanning, traffic monitoring, and device health checks.
+A terminal-based network management tool designed to monitor and manage network connections, interfaces, and configurations directly from the command line. This tool provides various functionalities such as network scanning, traffic monitoring, and device health checks.
 
 I am aware that they are bugs, and i'm working on them, this tool is ment for linux I have not tested it on windows.
 
@@ -32,7 +32,7 @@ To install the Terminal Network Manager, follow these steps:
 
 3. Install the required dependencies:
    ```bash
-   pip install psutil nmap
+   pip install psutil python-nmap
    ```
 
 ## Usage
@@ -60,7 +60,7 @@ sudo python3 terminal.py
 ## Requirements
 
 - Python 3.x
-- Root privileges for certain functionalities (e.g., firewall management, network scanning).
+- Root privileges for certain functionalities (e.g., network scanning).
 - Required Python packages: `psutil`, `nmap`.
 
 ## Contributing
@@ -86,11 +86,6 @@ Contributions are welcome! If you have suggestions for improvements or new featu
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
-
-- [Your Name](https://github.com/yourusername) - for creating this project.
-- Any libraries or tools you used in the project.
-
 ## Contact
 
-For any inquiries, please reach out to [your.email@example.com](mailto:your.email@example.com).
+For any inquiries, please reach out to [keyloggeder@proton.me](mailto:keyloggeder@proton.me).
